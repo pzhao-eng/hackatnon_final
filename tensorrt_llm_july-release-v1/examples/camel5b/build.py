@@ -18,7 +18,7 @@ from tensorrt_llm.quantization import QuantMode
 
 from weight import load_from_ft, parse_ft_config, check_embedding_share  # isort:skip
 
-MODEL_NAME = "gpt"
+MODEL_NAME = "camel-5b"
 
 
 def get_engine_name(model, dtype, tp_size, rank):
