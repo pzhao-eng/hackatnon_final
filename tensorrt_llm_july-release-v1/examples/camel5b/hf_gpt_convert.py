@@ -234,22 +234,22 @@ def hf_gpt_converter(args: ProgArgs):
             # out_dim and divide it by 3 to get local_dim becuase out_dim = local_dim + 2 * head_size
             local_dim = model.transformer.h[
                 0].attn.embed_dim if multi_query_mode else None
-            starmap_args.append(
-                (0, saved_dir, infer_tp, ft_name, param.to(storage_type),
+            starmap_arg = (0, saved_dir, infer_tp, ft_name, param.to(storage_type),
                  storage_type, act_range.get(name.replace(".weight", "")), {
                      "int8_outputs": int8_outputs,
                      "multi_query_mode": multi_query_mode,
                      "local_dim": local_dim
-                 }))
-
-    starmap_args = tqdm(starmap_args, desc="saving weights")
-    if args.processes > 1:
-        with multiprocessing.Pool(args.processes) as pool:
-            pool.starmap(split_and_save_weight, starmap_args)
-    else:
-        # simpler for debug situations
-        for starmap_arg in starmap_args:
+                 })
             split_and_save_weight(*starmap_arg)
+
+    # starmap_args = tqdm(starmap_args, desc="saving weights")
+    # if args.processes > 1:
+    #     with multiprocessing.Pool(args.processes) as pool:
+    #         pool.starmap(split_and_save_weight, starmap_args)
+    # else:
+    #     # simpler for debug situations
+    #     for starmap_arg in starmap_args:
+    #         split_and_save_weight(*starmap_arg)
 
 
 def run_conversion(args: ProgArgs):
