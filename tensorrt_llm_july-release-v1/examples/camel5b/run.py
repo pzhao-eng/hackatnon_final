@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import datetime
 
 import numpy as np
 import torch
@@ -210,9 +211,19 @@ def generate(
 
         ptuning_args = [prompt_table, tasks, task_vocab_size]
 
+    ## add timing
+    ##warming up
     output_ids = decoder.decode(input_ids, input_lengths, sampling_config,
                                 *ptuning_args)
+    start = datetime.datetime.now().timestamp()
+
+    for i in range(10):
+        output_ids = decoder.decode(input_ids, input_lengths, sampling_config,
+                                    *ptuning_args)
     torch.cuda.synchronize()
+
+    end = datetime.datetime.now().timestamp()
+    print("\ntime cost is: ", (end-start)*1000 / 10, "ms\n")
 
     if runtime_rank == 0:
         if output_csv is None and output_npy is None:
