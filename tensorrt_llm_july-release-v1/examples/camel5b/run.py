@@ -20,7 +20,7 @@ def parse_arguments():
     parser.add_argument('--engine_dir', type=str, default='gpt_outputs')
     parser.add_argument('--input_text',
                         type=str,
-                        default='Born in north-east France, Soyer trained as a')
+                        default='Describe a futuristic device that revolutionizes space travel.')
     parser.add_argument(
         '--input_tokens',
         dest='input_file',
@@ -60,7 +60,7 @@ def generate(
     max_output_len: int,
     log_level: str = 'error',
     engine_dir: str = 'gpt_outputs',
-    input_text: str = 'Born in north-east France, Soyer trained as a',
+    input_text: str = 'Describe a futuristic device that revolutionizes space travel.',
     input_file: str = None,
     output_csv: str = None,
     output_npy: str = None,
@@ -97,6 +97,19 @@ def generate(
     runtime_mapping = tensorrt_llm.Mapping(world_size, runtime_rank)
     torch.cuda.set_device(runtime_rank % runtime_mapping.gpus_per_node)
 
+    PROMPT_DICT = {
+        "prompt_input": (
+            "Below is an instruction that describes a task, paired with an input that provides further context. "
+            "Write a response that appropriately completes the request\n\n"
+            "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:"
+        ),
+        "prompt_no_input": (
+            "Below is an instruction that describes a task. "
+            "Write a response that appropriately completes the request.\n\n"
+            "### Instruction:\n{instruction}\n\n### Response:"
+        ),
+    }
+
     if vocab_file is not None:
         tokenizer = T5Tokenizer(vocab_file=vocab_file)
         END_ID = 50256
@@ -120,7 +133,7 @@ def generate(
                                      pad_id=END_ID,
                                      num_beams=num_beams)
 
-    engine_name = get_engine_name('gpt', dtype, world_size, runtime_rank)
+    engine_name = get_engine_name('camel-5b', dtype, world_size, runtime_rank)
     serialize_path = engine_dir / engine_name
     with open(serialize_path, 'rb') as f:
         engine_buffer = f.read()
@@ -130,6 +143,11 @@ def generate(
 
     input_tokens = []
     if input_file is None:
+        input_text = (
+            PROMPT_DICT["prompt_no_input"].format(instruction=input_text)
+            if not input
+            else PROMPT_DICT["prompt_input"].format(instruction=input_text, input=input)
+        )
         input_tokens.append(
             tokenizer.encode(input_text, add_special_tokens=False))
     else:
