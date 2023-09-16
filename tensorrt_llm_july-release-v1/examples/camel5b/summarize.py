@@ -46,7 +46,7 @@ def TRTGPT(args, config):
     runtime_mapping = tensorrt_llm.Mapping(world_size, runtime_rank)
     torch.cuda.set_device(runtime_rank % runtime_mapping.gpus_per_node)
 
-    engine_name = get_engine_name('gpt', dtype, world_size, runtime_rank)
+    engine_name = get_engine_name('camel-5b', dtype, world_size, runtime_rank)
     serialize_path = os.path.join(args.engine_dir, engine_name)
 
     tensorrt_llm.logger.set_level(args.log_level)
