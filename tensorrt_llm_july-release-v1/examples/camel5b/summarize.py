@@ -133,6 +133,8 @@ def main(args):
 
             input_id = tokenizer.encode(line[i],
                                         return_tensors='pt',
+                                        padding=True,
+                                        truncation=True,
                                         add_special_tokens=False).type(
                                             torch.int32)
             input_id = input_id[:, -test_token_num:]
