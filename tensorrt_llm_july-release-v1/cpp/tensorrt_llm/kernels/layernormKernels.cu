@@ -83,21 +83,17 @@ __global__ void generalLayerNorm(const T* input, const T* gamma, const T* beta, 
     const int n_elems = hidden_dim / num_elems_T;
     for (int i = tidx; i < n_elems; i += blockDim.x)
     {
-        const T val_pack = input[bidx * n_elems + i];
+        const T val = input[bidx * n_elems + i];
         if (use_shmem)
         {
-            shmem[i] = val_pack;
+            shmem[i] = val;
         }
-        const float *val = (float *)(&val_pack);
-        #pragma unroll
-        for (int index = 0; index < 4; index++)
+
+        const float_packed_t val_f = cuda_cast<float_packed_t>(val);
+        local_sum += cuda_sum<float>(val_f);
+        if (USE_DIFF_OF_SQUARES)
         {
-            const float_packed_t val_f = cuda_cast<float_packed_t>(val[index]);
-            local_sum += cuda_sum<float>(val_f);
-            if (USE_DIFF_OF_SQUARES)
-            {
-                local_var_sum += cuda_sum<float>(val_f * val_f);
-            }
+            local_var_sum += cuda_sum<float>(val_f * val_f);
         }
     }
 
@@ -129,12 +125,9 @@ __global__ void generalLayerNorm(const T* input, const T* gamma, const T* beta, 
     {
         for (int i = tidx; i < n_elems; i += blockDim.x)
         {
-            const T val_pack = use_shmem ? shmem[i] : input[bidx * n_elems + i];
-            const float *val_fp = (float *)(&val_pack);
-            for (int index = 0; index < 4; index++) {
-                float_packed_t diff = cuda_cast<float_packed_t>(val_fp[index]) - s_mean;
-                local_var_sum += cuda_sum<float>(diff * diff);
-            }
+            const T val = use_shmem ? shmem[i] : input[bidx * n_elems + i];
+            float_packed_t diff = cuda_cast<float_packed_t>(val) - s_mean;
+            local_var_sum += cuda_sum<float>(diff * diff);
         }
         variance = blockReduceSum(local_var_sum);
 
@@ -155,31 +148,25 @@ __global__ void generalLayerNorm(const T* input, const T* gamma, const T* beta, 
     for (int i = tidx; i < n_elems; i += blockDim.x)
     {
         const int index = bidx * n_elems + i;
-        const T val_pack = use_shmem ? shmem[i] : input[bidx * n_elems + i];
-        const float *val_fp = (float *)(&val_pack);
-        for (int idx_p = 0; idx_p < 4; ++idx_p) {
-            const float_packed_t val_f = cuda_cast<float_packed_t>(val_fp[idx_p]);
-            const float val = cuda_cast<float>(compute_layernorm(val_f, s_mean, s_variance, gamma, beta, i));
+        const float_packed_t val_f = cuda_cast<float_packed_t>(use_shmem ? shmem[i] : input[index]);
+        const T val = cuda_cast<T>(compute_layernorm(val_f, s_mean, s_variance, gamma, beta, i));
 
-            if (with_per_token_scaling)
+        if (with_per_token_scaling)
+        {
+            amax = cuda_max(cuda_max<T_scalar, T>(cuda_abs(val)), amax);
+            if (use_shmem)
             {
-                amax = cuda_max(cuda_max<T_scalar, float>(cuda_abs(val)), amax);
-                if (use_shmem)
-                {
-                    float *shmm_f = (float *)(&shmem[i]);
-                    shmm_f[idx_p] = val;
-                }
+                shmem[i] = val;
             }
-            else if (with_per_tensor_scaling)
-            {
-                const int index_f = bidx * n_elems * 4 + i;
-                reinterpret_cast<int8_packed_t*>(normed_output_quant)[index_f]
-                    = cuda_cast<int8_packed_t>(cuda_cast<float_packed_t>(val) * scale_orig_quant);
-            }
-            else
-            {
-                normed_output[index] = val;
-            }
+        }
+        else if (with_per_tensor_scaling)
+        {
+            reinterpret_cast<int8_packed_t*>(normed_output_quant)[index]
+                = cuda_cast<int8_packed_t>(cuda_cast<float_packed_t>(val) * scale_orig_quant);
+        }
+        else
+        {
+            normed_output[index] = val;
         }
     }
 
@@ -190,18 +177,14 @@ __global__ void generalLayerNorm(const T* input, const T* gamma, const T* beta, 
         for (int i = tidx; i < n_elems; i += blockDim.x)
         {
             const int index = bidx * n_elems + i;
-            const T val_pack = use_shmem ? shmem[i] : input[bidx * n_elems + i];
-            const float *val_fp = (float *)(&val_pack);
-            for (int idx_p = 0; idx_p < 4; ++idx_p) {
-                const float_packed_t val_f = cuda_cast<float_packed_t>(val_fp[idx_p]);
-                if (!use_shmem)
-                {
-                    val_f = compute_layernorm(val_f, s_mean, s_variance, gamma, beta, i);
-                }
-                const int index_f = bidx * n_elems * 4 + i;
-                reinterpret_cast<int8_packed_t*>(normed_output_quant)[index_f]
-                    = cuda_cast<int8_packed_t>(val_f * cuda_cast<float_packed_t>(dynamic_per_token_scale));
+            float_packed_t val_f = cuda_cast<float_packed_t>(use_shmem ? shmem[i] : input[index]);
+            if (!use_shmem)
+            {
+                val_f = compute_layernorm(val_f, s_mean, s_variance, gamma, beta, i);
             }
+
+            reinterpret_cast<int8_packed_t*>(normed_output_quant)[index]
+                = cuda_cast<int8_packed_t>(val_f * cuda_cast<float_packed_t>(dynamic_per_token_scale));
         }
         if (tidx == 0)
         {
@@ -253,11 +236,11 @@ void invokeGeneralLayerNorm(T* out, const T* input, const T* gamma, const T* bet
     int8_t* normed_output_quant)
 {
     dim3 grid(tokens);
-    dim3 block(min(hidden_dim, 512));
+    dim3 block(min(hidden_dim, 1024));
     // Make sure block.x is multiple of 32 for warp shuffle to work
     block.x = 32 * ((block.x + 31) / 32);
 
-    constexpr size_t vec_size = 8;
+    constexpr size_t vec_size = 2;
     const size_t shmem_size = hidden_dim * sizeof(T);
     const bool use_vec_type = (hidden_dim % vec_size == 0)
         && (std::is_same<T, half>::value
