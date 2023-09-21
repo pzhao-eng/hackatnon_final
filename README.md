@@ -40,9 +40,9 @@ apt-get install git-lfs
 git lfs install
 
 ## 如果可以链接到 huggingface clone camel-5b 
-mkdir -p /root/workspace/camel_5b
-cd /root/workspace/camel_5b
-git clone https://huggingface.co/Writer/camel-5b-hf
+# mkdir -p /root/workspace/camel_5b
+# cd /root/workspace/camel_5b
+# git clone https://huggingface.co/Writer/camel-5b-hf
 #！ 注意 如果不能clone成功 可以拷贝云主机保存的模型
 #! 切换到云主机
 docker cp /root/zp/camel_5b/ trt2023_valid:/root/workspace/camel_5b/
