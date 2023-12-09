@@ -113,17 +113,17 @@ camel-5b的网络结构和GPT2一致，现有的tensorRT-llm已经给出了网�
 
 - tensorRT-llm results
 
-![img](https://xiaopeng.feishu.cn/space/api/box/stream/download/asynccode/?code=Y2Q3ZWI0ZmJjZTNlMjBlZWY0M2ZiODY0Mzc3MDkzZTNfdkNIY2tpYXdnSjRFMDQ2d2RhSTVtaVFIa1lFRGNuc0tfVG9rZW46VUZjaWJwbTl5b3ZzUUJ4aWtPNWN6VFkyblhSXzE2OTUyNzk5Mjc6MTY5NTI4MzUyN19WNA)
+![img](https://github.com/pzhao-eng/figurebed/blob/main/2023-hackathon/image-0.png)
 
 - Hugging Face results
 
-![img](https://xiaopeng.feishu.cn/space/api/box/stream/download/asynccode/?code=NDE5M2UyYzAxNzVhNWIwZGMzZWUzYzQwNzgwOGZjM2ZfaGs0Q1oxcEdQSGZ5OXNleVZUdTU1MGRiWmE2ekJFU3NfVG9rZW46UEEwTWJaZzZzbzZXS3F4QjR6OWM1STQ3bmFlXzE2OTUyNzkxNDM6MTY5NTI4Mjc0M19WNA)
+![img](https://github.com/pzhao-eng/figurebed/blob/main/2023-hackathon/image-1.png)
 
 #### 优化（这部分工作还未完成）
 
 1. 原始的layerNormal 计算以及内存访问的效率较低
 
-![img](https://xiaopeng.feishu.cn/space/api/box/stream/download/asynccode/?code=MjE2NWJkMjExMGNmN2MzYzJhNDY1N2JiYjFiNGM0MzdfUWZ0blJCVmc5MmE3RmxDdU4xcEJRUldNRDNDMnl6dERfVG9rZW46UjR1b2JnQ1Vsb1ZNN0N4Vzk4Z2NvWWVmblNiXzE2OTUyNzkxNzM6MTY5NTI4Mjc3M19WNA)
+![img](https://github.com/pzhao-eng/figurebed/blob/main/2023-hackathon/image-2.png)
 
 计划通过循环展开增加计算吞吐量，通过矢量访存，降低内存聚并开销，提升内存访问效率。
 
@@ -163,7 +163,7 @@ python build.py --model_dir=./gpt2_hf/1-gpu/ --max_batch_size=1 --dtype float16 
 python run.py --engine_dir=/root/workspace/hackatnon_final/tensorrt_llm_july-release-v1/examples/gpt/gpt_outputs/ --max_output_len=8
 ```
 
-![img](https://xiaopeng.feishu.cn/space/api/box/stream/download/asynccode/?code=MDljMzFhYWYzNDIwMzg4ODI4MmQzNWNkOTE2NTkwY2FfR1JQOWc4TWIzcHIxWlJTbmJaem1DMFVBV2tqWk1CMjRfVG9rZW46RVpneWJGYXB3b0FsVzN4OEFINmM0c1NQbnVnXzE2OTUyNzkxODU6MTY5NTI4Mjc4NV9WNA)
+![img](https://github.com/pzhao-eng/figurebed/blob/main/2023-hackathon/image-3.png)
 
 #### 送分题2：
 
@@ -174,4 +174,4 @@ python summarize.py \
 2>&1 | tee q2.log
 ```
 
-![img](https://xiaopeng.feishu.cn/space/api/box/stream/download/asynccode/?code=MDU4Yjk1ZWM2MTAxMzY4ZWViMWI0MmM3ZDIxOWZlMzVfcFMyRnFSWk55T0h5TXgzZHBrYjNNMVN6OFE4WjVXOWtfVG9rZW46TTE2MWJnaEowb0dwVGd4ZmVUZGNGU0FmbldlXzE2OTUyNzkxODg6MTY5NTI4Mjc4OF9WNA)
+![img](https://github.com/pzhao-eng/figurebed/blob/main/2023-hackathon/image-4.png)
